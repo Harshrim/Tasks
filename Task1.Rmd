@@ -1,0 +1,314 @@
+---
+title: "Task 1 - Incinerator"
+author: "Harshrim Pardal"
+date: "5/25/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+tinytex::install_tinytex()
+#Importing the dataset
+library(readxl)
+library(DataExplorer)
+data1<-read_xlsx("D:\\RIMA\\MBA\\Christ\\SIP-Outlook\\Data\\Incinerator.xlsx",sheet=1)
+str(data1)
+summary(data1)
+data1<-na.omit(data1) #removing the records containing null values
+dim(data1)
+#Explore
+#create_report(data1)
+```
+```{r}
+#Loading required packages
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(lmtest)
+#library(estimatr)
+library(car) #vif
+library(lmtest)
+library(modelr)
+library(broom)
+```
+```{r}
+#Checking for outliers in the rprice variable
+ggplot(data=data1,aes(y=rprice))+geom_boxplot(outlier.colour="red",outlier.size=1.5)
+#The boxplot of rprice variable shows that there are some outliers. 
+#Since we have outliers in our dependent or independent variables, a log transformation could reduce the influence of those observations
+ggplot(data=data1,aes(y=lrprice))+geom_boxplot(outlier.colour="red",outlier.size=1.5)
+
+#Checking for outliers in the intst variable
+ggplot(data=data1,aes(y=intst))+geom_boxplot(outlier.colour="red",outlier.size=1.5)
+ggplot(data=data1,aes(y=lintst))+geom_boxplot(outlier.colour="red",outlier.size=1.5)
+
+#Checking for outliers in the dist variable
+ggplot(data=data1,aes(y=dist))+geom_boxplot(outlier.colour="red",outlier.size=1.5)
+ggplot(data=data1,aes(y=ldist))+geom_boxplot(outlier.colour="red",outlier.size=1.5)
+
+#Checking for outliers in the price variable
+ggplot(data=data1,aes(y=price))+geom_boxplot(outlier.colour="red",outlier.size=1.5)
+ggplot(data=data1,aes(y=lprice))+geom_boxplot(outlier.colour="red",outlier.size=1.5)
+
+#Checking for outliers in the area variable
+ggplot(data=data1,aes(y=area))+geom_boxplot(outlier.colour="red",outlier.size=1.5)
+ggplot(data=data1,aes(y=larea))+geom_boxplot(outlier.colour="red",outlier.size=1.5)
+
+#Checking for outliers in the land variable
+ggplot(data=data1,aes(y=land))+geom_boxplot(outlier.colour="red",outlier.size=1.5)
+ggplot(data=data1,aes(y=lland))+geom_boxplot(outlier.colour="red",outlier.size=1.5)
+```
+
+#Problem Statement 1 - What factors affect the house price.
+#Problem Statement 2 - Predict the price of a house depending on the available values of other parameters
+
+**MODEL DEVELOPMENT**
+
+```{r}
+library(caTools)
+#Creating a subset of 70% data
+set.seed(100)
+split1<-sample.split(data1$age, SplitRatio=0.7)
+data1train<-subset(data1, split1==TRUE)
+data1test<-subset(data1, split1==FALSE)
+
+```
+**EXPLANATION**
+
+The above code creates a subset of the original Incinerator dataset and divides it into two parts -70% training dataset and 30% testing dataset. The set.seed is used to generate random numbers
+
+The training dataset is stored in data1train
+The testing dataset is stored in data1test
+
+```{r}
+#Building the regression model
+reg1<-lm(lrprice~age+nbh+cbd+lintst+rooms+larea+lland+baths+ldist, data= data1train)
+summary(reg1)
+
+#prediction and rmse
+predicted1<-predict(reg1,data1test)
+predicted1
+dim(predicted1)
+
+library(Metrics)
+#Metrics::rmse(data1test$e..g.km.,predicted1)
+rmse(predicted1,data1test$lrprice)
+AIC(reg1)
+BIC(reg1)
+
+#ANOVA Table
+ano<-anova(reg1)
+ano
+```
+**EXPLANATION**
+The dependent Variable(DV) in this model is lrprice which is a scaled variable. The independent variables used are age(Age of House),nbh(Neighborhood) cbd(Distance to Central Bus dstrct,feet) , lintst(Log of distance to interstate),rooms(Number of rooms),larea(Log of square footage of house),lland(Log of sqaure footage of lot),baths(Number of batrooms),ldist(Log of distance from house to incinerator)
+
+Using this these variables and the training dataset regression model is built 
+p-value>0.05 ---accept null hypothesis
+p-value<0.05---reject null hypothesis
+
+Ho:Model is not good fit , Ha: Model good fit
+
+From the output , we get a p-value of 2.2e-16 which is <0.05 Thus, Null Hypothesis is rejected. Thus model is a good fit. 
+
+H0:Variable has no impact on lrprice (Price of House)
+Ha:Variable has impact on Price of House
+From the output the Pr(>|t|) values of the Chosen IVs are:
+Age - 3.81e-08    ---->Null Hypothesis Rejected
+nbh - 0.135641 ---->Null Hypothesis cannot be rejected
+cbd - 0.006867 ---->Null Hypothesis is rejected
+lintst - 0.320200 ---->Null Hypothesis cannot be rejected
+rooms- 0.081351---->Null Hypothesis cannot be Rejected
+larea - 3.46e-10---->Null Hypothesis Rejected
+lland - 0.000916 ---->Null Hypothesis Rejected
+baths - 0.002045 ---->Null Hypothesis Rejected
+ldist - 0.002051 ---->Null Hypothesis Rejected
+
+Conclusion: 
+Age of House and Log of Square Footage of House has highest impact on price of house, followed by (in descending order of importance) lland(Log of sqaure lot) ,baths(NUmber of bathrooms), ldist(Log of distance to incinerator),cbd (Distance to central bus dstrct)
+
+Neigborhood , lintst,rooms has no impact on house price
+
+Adjusted R square and R square:
+R square is coefficient of determination- 0.7014 i.e. 70.14% . The selected variable
+(IVs) create 70.14% variation in the Dependent Variable -House Price
+
+Adjusted R square: As there are more than one IV thus Adjusted R square should be considered, .6893 i.e. 68.93% . The selected IVs create 68.93% variation in the Price of House . This indicates that dataset containing a few more variables should also be collected in order to get better prediction model
+
+RMSE is 0.1824635 which is less. Higher the RMSE, more improper the model is. To lower the RMSE more, more data should be collected so that the training and testing data is more. In this case , the testing dataset is very small due to which the RMSE is also less. Thus in order to get more accurte results , more data needs to be collected
+
+Regression equation: House Price= 4.012e+00 - 2.929e-03 * age -1.180e-02 * nbh -1.686e-05 * cbd + 4.889e-02 * lintst + 3.848e-02 * rooms+4.360e-01 * larea + 9.878e-02 * lland + 1.081e-01 * baths + 2.334e-01 * ldist
+
+Conclusion on beta coefficients: For each unit increase in age , the house of price  will decrease by .2.929e-03
+For each unit increase in number of batrooms, the house price   will increase by 1.081e-01 
+For each unit increase in cbd , the house price will decrease by 1.686e-05
+For each unit increase in rooms ,the house price   will increase by 3.848e-02
+For each unit increase in larea ,the house price   will increase by 4.360e-01
+For each unit increase in lland ,the house price   will increase by 1.081e-01
+For each unit increase in ldist ,the house price   will increase by 2.334e-01
+
+
+```{r}
+#Multicollinearity with respect to Model
+library(car)
+vif(reg1)
+#Building second model by droppinf variables having no impact on house price and variables having high multicollinearity
+reg2<-lm(lrprice~age+larea+lland+baths, data= data1train)
+summary(reg2)
+vif(reg2)
+
+#prediction and rmse
+predicted2<-predict(reg2,data1test)
+predicted2
+dim(predicted2)
+
+library(Metrics)
+#Metrics::rmse(data1test$e..g.km.,predicted1)
+rmse(predicted2,data1test$lrprice)
+AIC(reg2)
+BIC(reg2)
+```
+**EXPLANATION**
+
+Multicollinearity means that there is high coorelation amongst the selected IVs.Values above 2.5 suggest that there is high multi-collinearity . In this case there is no high multi-collinearity amongst the variables . Thus the IVs cbd,ldist,lintst are dropped
+
+Model 2 - 
+vif output - No need to drop any further IV
+
+The dependent Variable(DV) in this model is lrprice which is a scaled variable. The independent variables used are age(Age of House),larea(Log of square footage of house),lland(Log of sqaure footage of lot),baths(Number of batrooms)
+
+Using this these variables and the training dataset regression model is built 
+p-value>0.05 ---accept null hypothesis
+p-value<0.05---reject null hypothesis
+
+Ho:Model is not good fit , Ha: Model good fit
+
+From the output , we get a p-value of 2.2e-16 which is <0.05 Thus, Null Hypothesis is rejected. Thus model is a good fit. 
+
+H0:Variable has no impact on lrprice (Price of House)
+Ha:Variable has impact on Price of House
+From the output the Pr(>|t|) values of the Chosen IVs are:
+Age - 4.44e-07    ---->Null Hypothesis Rejected
+larea - 1.37e-10---->Null Hypothesis Rejected
+lland - 0.000102 ---->Null Hypothesis Rejected
+baths - 2.69e-06 ---->Null Hypothesis Rejected
+
+
+Conclusion: 
+Age of House has highest impact on price of house, followed by (in descending order of importance)baths(NUmber of bathrooms),larea and lland(Log of sqaure lot) 
+
+Adjusted R square and R square:
+R square is coefficient of determination-  0.6709  i.e. 67.09% . The selected variable
+(IVs) create 67.09% variation in the Dependent Variable -House Price
+
+Adjusted R square: As there are more than one IV thus Adjusted R square should be considered, 0.6651 i.e. 66.51% . The selected IVs create 66.51% variation in the Price of House . This indicates that dataset containing a few more variables should also be collected in order to get better prediction model
+
+RMSE is 0.1916422 which is less. Higher the RMSE, more improper the model is. To lower the RMSE more, more data should be collected so that the training and testing data is more. In this case , the testing dataset is very small due to which the RMSE is also less. Thus in order to get more accurte results , more data needs to be collected
+
+Regression equation: House Price= 6.606783 - -0.0025605 * age = 0.4541769 * larea +  0.0855798 * lland + 0.1562140 * baths
+
+Conclusion on beta coefficients: For each unit increase in age , the house of price  will decrease by 0.0025605
+For each unit increase in number of batrooms, the house price   will increase by 0.1562140 
+For each unit increase in larea ,the house price   will increase by 0.4541769
+For each unit increase in lland ,the house price   will increase by 0.0855798 
+
+
+```{r}
+
+#Heteroscedasticity of residual 
+#randomness in residual
+plot(reg2$residuals,c(1:length(reg2$residuals)))
+
+#Heteroscadisticy- 
+plot(reg2$residuals,reg2$fitted.values)
+
+library(lmtest)
+library(fBasics)
+library(moments)
+bptest(reg2)
+```
+**EXPLANATION**
+Heteroscedasticity means unequal scatter and produces a distinctive fan or cone shape in residual plots . Specifically, heteroscedasticity is a systematic change in the spread of the residuals over the range of measured value.
+
+The test statistic is 8.5039 and the corresponding p-value is 0.07477. Since the p-value is  not less than 0.05, we cannot reject the null hypothesis. We do not have sufficient evidence to say that heteroscedasticity is present in the regression model.
+
+```{r}
+#Normality of Residual
+reg2$coefficients
+x<-reg2$residuals
+qqnorm(x)
+qqline(x)
+shapiro.test(x)
+hist(x)
+```
+
+**EXPLANATION**
+Shapiro Test for Normality:
+Null hypothesis: Data is normally distributed
+Alternate Hypothesis: Data is not normally distributed
+
+p-value = 3.744e-071. If the p-value is greater than 0.05, then the null hypothesis is not rejected. In this case, the p- value is less than 0.05 thus data is not normally distributed . Most of the data point lie on the line as seen from the Normal qq Plot but there is right-skewness in the data as visible from the histogram. Thus data is not normally distributed
+
+
+```{r}
+#Autocorrelation
+library(lmtest)
+dwtest(reg2)
+
+```
+**EXPLANATION**
+Autocorrelation occurs when the residuals are not independent from each other.
+The null hypothesis of the Durbin Watson test (Ho) is that there is no correlation among residuals, i.e., they are independent. The alternative hypothesis (Ha) is that residuals are autocorrelated.
+
+ we see that the resulting p-value is not greater than 0.05, and so we reject the null hypothesis. The D-W statistic for this model of 1.5805 which indicates a less positive correlation in the residuals data. In order to solve this and remove autocorrelation some more missing predictors(IVs) should be added to the regression model
+
+```{r}
+#Problem Statement 3 -Does vicinity to an incinerator have impact on house price
+#Problem Statement 4 -Does the effect of vicinity to incinerator on house price have same effect over time
+model1<- lm(lrprice ~ nearinc+ldist, data = data1train)
+summary(model1)
+
+#To see whether house prices changed over time we use difference-in-difference model. 
+
+model2 <- lm(lrprice ~ nearinc + y81 + y81ldist, data = data1train)
+summary(model2)
+
+```
+** EXPLANATION **
+#model1
+The dependent Variable(DV) in this model is lrprice which is a scaled variable. The independent variables used are nearinc and ldist
+
+Using this these variables and the training dataset regression model is built 
+p-value>0.05 ---accept null hypothesis
+p-value<0.05---reject null hypothesis
+
+Ho:Model is not good fit , Ha: Model good fit
+
+From the output , we get a p-value of 1.837e-12 which is <0.05 Thus, Null Hypothesis is rejected. Thus model is a good fit. 
+
+H0:Variable has no impact on lrprice (Price of House)
+Ha:Variable has impact on Price of House
+From the output the Pr(>|t|) values of the Chosen IVs are:
+nearinc - 0.0143 <0.05 ---->Null hypothesis is rejected
+ldist - 0.16828 ---->Null hypothesis cannot be rejected
+
+#model2
+From the output we see that y81ldist is not significant which is same as seen in model 1 where ldist was not significant . Thus we can say that there is no significant difference on house prices between the years.
+
+```{r}
+#Problem Statement 5 - 5.	Determine average number of rooms and bathrooms for each neighborhood
+
+data1$nbh <- as.factor(data1$nbh)
+data1$nbh
+data2<-data1 %>% group_by(nbh) %>% summarise(mean_rooms = mean(rooms))
+ggplot(aes(x = nbh, y = mean_rooms), data = data2) + geom_bar(stat = "identity")
+data3<-data1 %>% group_by(nbh) %>% summarise(mean_baths = mean(baths))
+ggplot(aes(x = nbh, y = mean_baths), data = data3) + geom_bar(stat = "identity")
+
+```
+
