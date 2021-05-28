@@ -272,12 +272,11 @@ The null hypothesis of the Durbin Watson test (Ho) is that there is no correlati
 ```{r}
 #Problem Statement 3 -Does vicinity to an incinerator have impact on house price
 #Problem Statement 4 -Does the effect of vicinity to incinerator on house price have same effect over time
-model1<- lm(lrprice ~ nearinc+ldist, data = data1train)
+model1<- lm(lrprice ~ nearinc+ ldist, data = data1train)
+
 summary(model1)
 
-ggplot(aes(x = dist, y = lrprice), data = data1) + geom_point()+geom_smooth()+ggtitle("Plot of Distance from Incinerator vs Price of House")  + theme(axis.ticks =element_blank(),
-                      axis.text = element_blank(),
-                      axis.title = element_blank())
+ggplot(aes(x = dist, y = lrprice), data = data1) + geom_point()+geom_smooth()+ggtitle("Plot of Distance from Incinerator vs Price of House")  + theme(axis.ticks =element_blank())
 
 
 #To see whether house prices changed over time we use difference-in-difference model. 
@@ -314,9 +313,7 @@ data1$nbh
 data2<-data1 %>% group_by(nbh) %>% summarise(mean_rooms = mean(rooms))
 
 ggplot(aes(x = nbh, y = mean_rooms,fill=nbh), data = data2) + geom_bar(stat = "identity")+geom_text(aes(label = signif(mean_rooms, digits = 3), nudge_y=1))+ggtitle("Mean number of rooms per Neighborhood") + theme(axis.ticks =element_blank(),
-                      axis.text = element_blank(),
-                      axis.title = element_blank(),
-                      panel.background = element_blank())
+                          panel.background = element_blank())
 ```
 
 Interpretation- Neighborhood 4 has minimum average number of rooms per neighborhood - 5.93
@@ -325,8 +322,6 @@ Neighborhood 6 has maximum average number of rooms per neighborhood - 6.97
 ```{r}
 data3<-data1 %>% group_by(nbh) %>% summarise(mean_baths = mean(baths))
 ggplot(aes(x = nbh, y = mean_baths,fill=nbh), data = data3) + geom_bar(stat = "identity")+geom_text(aes(label = signif(mean_baths, digits = 3), nudge_y = 1))+ggtitle("Mean number of bathrooms per Neighborhood")  + theme(axis.ticks =element_blank(),
-                      axis.text = element_blank(),
-                      axis.title = element_blank(),
                       panel.background = element_blank())
 ```
 
@@ -336,39 +331,46 @@ Neighborhood 2 has maximum average number of bathrooms per neighborhood - 2.67
 ```{r}
 class(data1)
 unique(data1["baths"])
-data4<-data1 %>% group_by(baths) %>% summarise(min_price = min(lrprice),max_price=max(lrprice))
+data4<-data1 %>% group_by(baths) %>% summarise(min_price = min(rprice),max_price=max(rprice))
 data4
 
 #Other Graphs
-ggplot(aes(x = baths, y = min_price), data = data4) + geom_line()+geom_point()+ggtitle("Min price of house for each number of bathroom")  + theme(axis.ticks =element_blank(),
-                      axis.text = element_blank(),
-                      axis.title = element_blank())
+ggplot(aes(x = baths, y = min_price), data = data4) + geom_line()+geom_point()+ggtitle("Min price of house for each number of bathroom")  +  geom_text(aes(label = signif(min_price, digits = 3), nudge_y = 1))+theme(axis.ticks =element_blank())
+            
 ```
 
 Interpretation-We can see that the minimum price for house increases with increase in number of bathrooms in house
 
 ```{r}
-ggplot(aes(x = baths, y = max_price), data = data4) + geom_line()+geom_point()+ggtitle("Max price of house for each number of bathroom")  + theme(axis.ticks =element_blank(),
-                      axis.text = element_blank(),
-                      axis.title = element_blank())
+ggplot(aes(x = baths, y = max_price), data = data4) + geom_line()+geom_point()+ggtitle("Max price of house for each number of bathroom")+ geom_text(aes(label = signif(max_price, digits = 3), nudge_y = 1)) + theme(axis.ticks =element_blank())
 ```
 
 Interpretation - We can see that the maximum price for house increases with increase in number of bathrooms in house
 
 ```{r}
-ggplot(aes(x = larea, y = lrprice), data = data1) + geom_point()+geom_smooth()+ggtitle("Plot of Area of House vs Price of House")  + theme(axis.ticks =element_blank(),
-                      axis.text = element_blank(),
-                      axis.title = element_blank())
+ggplot(aes(x = larea, y = lrprice), data = data1) + geom_point()+geom_smooth()+ggtitle("Plot of Area of House vs Price of House")  + theme(axis.ticks =element_blank())
 ```
 
 Interpretation - Price of House increases with increase in area of house
 
 ```{r}
-ggplot(aes(x = age, y = lrprice), data = data1) + geom_point()+geom_smooth()+ggtitle("Plot of Age of House vs Price of House")  + theme(axis.ticks =element_blank(),
-                      axis.text = element_blank(),
-                      axis.title = element_blank())
+ggplot(aes(x = age, y = lrprice), data = data1) + geom_point()+geom_smooth()+ggtitle("Plot of Age of House vs Price of House")  + theme(axis.ticks =element_blank())
 
 ```
 
 Interpretation - Price of House decreases with increase in age of house upto the age of 75-80 years then starts increasing
+
+```{r}
+ggplot(aes(x = lland, y = lrprice), data = data1) + geom_point()+geom_smooth()+ggtitle("Plot of Square Footage of lot vs Price of House")  + theme(axis.ticks =element_blank())
+
+```
+
+Interpretation - Price of House increases with increase in square footage of land upto the value where log(land) is around 10.2 then decreases and again starts increasing
+
+```{r}
+ggplot(aes(x = baths, y = lrprice), data = data1) + geom_point()+geom_smooth()+ggtitle("Plot of Number of Bathrooms vs Price of House")  + theme(axis.ticks =element_blank())
+
+```
+
+Interpretation - Price of House increases with increase in number of bathrooms
 
