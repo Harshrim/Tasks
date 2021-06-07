@@ -1,0 +1,93 @@
+---
+title: "Task3_ExhaustiveIterative"
+author: "Harshrim Pardal"
+date: "6/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readxl)
+library(DataExplorer)
+data1<-read_xlsx("D:\\RIMA\\MBA\\Christ\\SIP-Outlook\\Data\\MRA Analytics.xlsx",sheet=1)
+str(data1)
+summary(data1)
+class(data1)
+data1 <- subset(data1, select = -c(1,2))
+dim(data1)
+data1<-na.omit(data1) #removing the records containing null values
+dim(data1)
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(lmtest)
+#library(estimatr)
+library(car) #vif
+
+```
+
+**MODEL DEVELOPMENT**
+
+```{r}
+library(caTools)
+#Creating a subset of 70% data
+set.seed(100)
+split1<-sample.split(data1$Age, SplitRatio=0.7)
+data1train<-subset(data1, split1==TRUE)
+data1test<-subset(data1, split1==FALSE)
+
+```
+
+```{r}
+library(leaps)
+
+search <- regsubsets(Price ~ ., data = data1, nbest = 1, method = "exhaustive")
+#help("regsubsets")
+sum <- summary(search)
+
+# show models
+sum$which
+data.frame(rsq = sum$rsq, adjr2 = sum$adjr2, cp=sum$cp)
+
+
+#Regression
+# use lm() to run a linear regression of Price on all 11 predictors in the
+# training set. 
+# use . after ~ to include all the remaining columns in data1train as predictors.
+car.lm <- lm(Price ~ Age+KM+HP+cc+Doors+Weight+Quarterly_Tax, data = data1train)
+
+#  use options() to ensure numbers are not displayed in scientific notation.
+# options(scipen = 999)
+summary(car.lm)
+
+library(forecast)
+predicted1<-predict(car.lm,data1test)
+accuracy(predicted1,data1test$Price)
+
+car.lm.step <- step(car.lm, direction = "backward")
+summary(car.lm.step)
+car.lm.step.pred <- predict(car.lm.step, data1test)
+accuracy(car.lm.step.pred, data1test$Price)
+
+# create model with no predictors
+car.lm.null <- lm(Price~1, data = data1train)
+# use step() to run forward regression.
+car.lm.step <- step(car.lm.null, scope=list(lower=car.lm.null, upper=car.lm), direction = "forward")
+summary(car.lm.step)
+car.lm.step.pred <- predict(car.lm.step,data1test)
+accuracy(car.lm.step.pred, data1test$Price)
+
+car.lm.step <- step(car.lm, direction = "both")
+summary(car.lm.step)
+car.lm.step.pred <- predict(car.lm.step, data1test)
+accuracy(car.lm.step.pred, data1test$Price)
+```
+
+We see that the dominant predictors in all the models are Age , HP , Weight , KM and Quarterly_Tax
