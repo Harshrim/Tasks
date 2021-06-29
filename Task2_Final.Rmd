@@ -1,0 +1,225 @@
+---
+code_folding: hide
+author: "Harshrim Pardal"
+date: "6/9/2021"
+output:
+  html_document: default
+  code_folding: default
+title: "Task2_Final"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r , echo=FALSE ,results='hide',warning=FALSE,message=FALSE}
+options(scipen=999)
+
+## Load the libraries
+library(caret)
+library(vtreat)
+library(class)
+library(dplyr)
+library(stats)
+library(reshape2)
+library(gplots)
+library(vcd)
+library(MLmetrics)
+library(forecast)
+library(gains)
+library(lift)
+library(corrplot)
+library(DataExplorer)
+library(maps)
+library(ggmap)
+library(ggthemes)
+library(leaflet)
+library(rpart.plot)
+library(ggplot2)
+library(randomForest)
+```
+
+**Loading the Dataset**
+
+```{r, warning=FALSE}
+library(readxl)
+library(DataExplorer)
+data2<-read_xlsx("D:\\RIMA\\MBA\\Christ\\SIP-Outlook\\Data\\Tree Making.xlsx",sheet=1)
+head(data2)
+dim(data2)
+sapply(names(data2),class)
+plot_missing(data2)
+```
+
+**Splitting the dataset into training and testing dataset**
+
+```{r,warning=FALSE , class.source = 'fold-hide'}
+
+library(caTools)
+#Creating a subset of 70% data
+set.seed(100)
+split1<-sample.split(data2$MEDV, SplitRatio=0.7)
+data1train<-subset(data2, split1==TRUE)
+data1test<-subset(data2, split1==FALSE)
+
+```
+
+**EXPLANATION**
+
+The above code creates a subset of the original Incinerator dataset and divides it into two parts - 70% training dataset and 30% testing dataset. The set.seed is used to generate random numbers
+
+The training dataset is stored in data1train
+The testing dataset is stored in data1test
+
+
+**Decision Tree - **
+For a decision tree the leaf nodes should be 0 or 1
+
+Decision Tree 1 - The value of CAT.MEDV is classified as 0 or 1 depending on all other variables in the dataset
+
+```{r , warning=FALSE}
+reg2<-lm(CAT.MEDV~ .,data=data1train)
+summary(reg2)
+#reg1$fitted.values
+library(rpart)
+library(rpart.plot)
+tree2 =rpart(CAT.MEDV ~., data=data1train)
+prp(tree2, box.palette="Blues")
+varImp(tree2)
+title("Decision Tree 1")
+```
+
+**EXPLANATION**
+
+The dependent Variable(DV) in this model is CAT.MEDV which is a scaled variable and can take two values - either 0 or 1 . The independent variables used are CRIM,ZN,INDUS,CHAS,NOX,RM,AGE,DIS,RAD,TAX,PTRATIO,B,LSTAT,MEDV
+
+Using this these variables and the training dataset regression model is built 
+p-value>0.05 ---accept null hypothesis
+p-value<0.05---reject null hypothesis
+
+Ho:Model is not good fit , Ha: Model good fit
+
+From the output , we get a p-value of < 0.00000000000000022 which is <0.05 Thus, Null Hypothesis is rejected. Thus model is a good fit. 
+
+H0:Variable has no impact on CAT.MEDV
+Ha:Variable has impact on CAT.MEDV
+
+From the output the Pr(>|t|) values of the Chosen IVs are:
+
+CRIM, ZN, INDUS, NOX, RM,LSTAT,MEDV has impact on the value of CAT.MEDV
+
+CHAS,DIS,RAD,TAX,PTRATIO,B has no impact on the value of CAT.MEDV
+
+Adjusted R square and R square:
+R square is coefficient of determination- 0.7215 i.e. 72.15% . The selected variable
+(IVs) create 72.15% variation in the Dependent Variable -CAT.MEDV
+
+Adjusted R square: As there are more than one IV thus Adjusted R square should be considered, .7136 i.e. 71.36% . The selected IVs create 71.36% variation in the value of CAT.MEDV 
+
+From the above tree and the output of varImp , we can see that when the entire data is selected , the most important attribute chosen by the model is MEDV and the decision tree is plotted with leaf nodes 0 and 1.
+
+Next , two trees will be constructed , one using only MEDV as the independent variable and other using all other variables except MEDV as the independent variable
+
+```{r ,  warning=FALSE}
+reg3<-lm(CAT.MEDV~ MEDV,data=data2)
+summary(reg3)
+#reg1$fitted.values
+library(rpart)
+library(rpart.plot)
+tree3 =rpart(CAT.MEDV ~ MEDV, data=data1train)
+prp(tree3, box.palette=c("green", "green2", "green4"))
+varImp(tree3)
+title("Decision Tree 2")
+
+#Prediction and Stats on Tree
+tree3.pred = predict(tree3, newdata=data1test)
+tree3.pred
+tree3.sse = sum((tree3.pred - data1test$CAT.MEDV)^2)
+tree3.sse
+tree3.rmse= sqrt(mean((tree3.pred - data1test$CAT.MEDV)^2))
+tree3.rmse
+RMSE0 = sd(data1test$CAT.MEDV-mean(data1test$CAT.MEDV))
+r_sq = 1 - (tree3.rmse/RMSE0)
+r_sq*100
+ssto=sum(tree3.pred - mean(data1test$CAT.MEDV)^2)
+ssto
+r_sq1 = 1 - (tree3.sse/ssto)
+r_sq1*100
+#rsq.rpart(tree3)
+accuracy(data1test$CAT.MEDV,tree3.pred)
+```
+**EXPLANATION**
+The above tree is same as the first tree and the predictions of CAT.MEDV using this tree are shown to be 100% perfect predictions
+
+The RMSE and SSE of this tree are 0 and the R square value for this tree is 100.
+
+When the value of MEDV is less than 30 , CAT.MEDV is 0 otherwise it is 1
+
+```{r, warning=FALSE}
+reg1<-lm(CAT.MEDV~ CRIM+ZN+INDUS+CHAS+NOX+RM+AGE+DIS+RAD+TAX+PTRATIO+B+LSTAT ,data=data1train)
+summary(reg1)
+#reg1$fitted.values
+library(rpart)
+library(rpart.plot)
+tree1 =rpart(CAT.MEDV ~ CRIM+ZN+INDUS+CHAS+NOX+RM+AGE+DIS+RAD+TAX+PTRATIO+B+LSTAT, data=data2)
+prp(tree1, box.palette="Blues")
+varImp(tree1)
+title("Decision Tree 3")
+
+```
+
+**EXPLANATION**
+
+The above tree is not a decision tree as we can see that the values of the leaf nodes are not 0 or 1 but also show some leaf nodes with decimal values. Thus we can conclude the only variable helpful in making a decision for CAT.MEDV is MEDV and the Decision Tree 2 is the best Decision Tree for the variable CAT.MEDV
+
+Now we create the regression tree for the variable MEDV
+
+```{r , warning=FALSE , message=FALSE , class.source = 'fold-hide'}
+str(data2)
+summary(data2$NOX)
+summary(data2$MEDV)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(lmtest)
+#library(estimatr)
+library(car) #vif
+library(rpart)
+library(rpart.plot)
+
+tree = rpart(MEDV ~  CRIM + ZN + INDUS + CHAS + NOX + RM + AGE + DIS + RAD + TAX + PTRATIO +B + LSTAT, data=data1train)
+prp(tree ,  box.palette=c("green", "green2", "green4"))
+tree.pred = predict(tree, newdata=data1test)
+tree.pred
+#Stats
+tree.sse = sum((tree.pred - data1test$MEDV)^2)
+tree.sse
+tree.rmse= sqrt(mean((tree.pred - data1test$MEDV)^2))
+tree.rmse
+RMSE0 = sd(data1test$MEDV-mean(data1test$MEDV))
+r_sq = 1 - (tree.rmse/RMSE0)
+r_sq*100
+ssto=sum(tree.pred -mean(data1test$MEDV)^2)
+ssto
+r_sq1 = 1 - (tree.sse/ssto)
+r_sq1*100
+rsq.rpart(tree)
+accuracy(data1test$MEDV,tree.pred)
+```
+
+```{r}
+tree2<-rpart(MEDV~ CRIM+ZN+INDUS+CHAS+NOX+RM+AGE+DIS+RAD+TAX+PTRATIO+B+LSTAT ,data=data1train,minbucket=50)
+prp(tree2, box.palette="Blues")
+#rpart.plot(tree2,main="Regression Tree 2")
+
+```
+
+**Notes:**
+
+About rpart: The R function rpart is an implementation of the CART [Classification and Regression Tree] supervised machine learning algorithm used to generate a decision tree.  The R implementation is called rpart for Recursive PARTitioning. Like C50, rpart uses a computational metric to determine the best rule that splits the data, at that node, into purer classes. In the rpart algorithm the computational metric is the Gini coefficient. At each node, rpart minimizes the Gini coefficient and thus splits the data into purer class subsets with the class leaf nodes at the bottom of the decision tree. The process is simple to compute and runs fairly well, but our example will highlight some computational issues. The output from the R implementation is a decision tree that can be used to assign [predict] a class to new unclassified data items.     
+
+The option minbucket provides the smallest number of observations that are allowed in a terminal node. If a split decision breaks up the data into a node with less than the minbucket, it won’t accept it.
+
+The minsplit parameter is the smallest number of observations in the parent node that could be split further. The default is 20. If you have less than 20 records in a parent node, it is labeled as a terminal node.
+
+Finally, the maxdepth parameter prevents the tree from growing past a certain depth / height.The default is 30

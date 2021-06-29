@@ -1,0 +1,353 @@
+---
+title: "Task 3 - MRA"
+author: "Harshrim Pardal"
+date: "6/2/2021"
+output: html_document
+---
+```{r setup, include=FALSE}
+
+```
+
+```{r echo='FALSE'}
+knitr::opts_chunk$set(echo = FALSE)
+library(readxl)
+library(DataExplorer)
+data1<-read_xlsx("D:\\RIMA\\MBA\\Christ\\SIP-Outlook\\Data\\MRA Analytics.xlsx",sheet=1)
+str(data1)
+summary(data1)
+dim(data1)
+data1<-na.omit(data1) #removing the records containing null values
+dim(data1)
+```
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(lmtest)
+#library(estimatr)
+library(car) #vif
+
+```
+
+**MODEL DEVELOPMENT**
+
+```{r}
+library(caTools)
+#Creating a subset of 70% data
+set.seed(100)
+split1<-sample.split(data1$Id, SplitRatio=0.7)
+data1train<-subset(data1, split1==TRUE)
+data1test<-subset(data1, split1==FALSE)
+
+```
+
+**EXPLANATION**
+
+The above code creates a subset of the original MRA Analytics dataset and divides it into two parts - 70% training dataset and 30% testing dataset. The set.seed is used to generate random numbers
+
+The training dataset is stored in data1train
+The testing dataset is stored in data1test
+
+**PROBELM STATEMENT 1**
+
+Predict the price of a used Toyota Corolla based on its specifications.
+
+```{r}
+
+#Regression
+# use lm() to run a linear regression of Price on all 11 predictors in the
+# training set. 
+# use . after ~ to include all the remaining columns in data1train as predictors.
+car1.lm <- lm(Price ~ Age+KM+HP+cc+Doors+Weight+Quarterly_Tax, data = data1train)
+
+#  use options() to ensure numbers are not displayed in scientific notation.
+options(scipen = 999)
+summary(car1.lm)
+
+```
+**Explanation:**
+From the above output we can see that The dependent Variable(DV) in this model is Price which is a scaled variable. The independent variables used are Age(Age of Car in months as in August 2004
+),KM (Accumulated Kilometers on odometer),HP(Horse Power),cc(Cylinder Volume on cubic centimeters),Doors(Number of Doors),Weight(Weight in Kilograms), Quarterly_Tax (Quarterly road tax in EUROs)
+
+Using this these variables and the training dataset regression model is built 
+p-value>0.05 ---accept null hypothesis
+p-value<0.05---reject null hypothesis
+
+Ho:Model is not good fit , Ha: Model good fit
+
+From the output , we get a p-value of 0.00000000000000022 which is <0.05 Thus, Null Hypothesis is rejected. Thus model is a good fit. 
+
+H0:Variable has no impact on Price (Offer Price of Car)
+Ha:Variable has impact on Price of Car
+
+From the output the Pr(>|t|) values of the Chosen IVs are:
+Age - < 0.0000000000000002   ---->Null Hypothesis Rejected
+KM - < 0.0000000000000002  ---->Null Hypothesis Rejected
+HP - < 0.0000000000000002  ---->Null Hypothesis Rejected
+cc -  0.751159 ---->Null Hypothesis cannot be rejected
+Doors - 0.933674 ---->Null Hypothesis cannot be rejected
+Weight - < 0.0000000000000002 ---->Null Hypothesis Rejected
+Quarterly_Tax - 0.000213 ---->Null Hypothesis Rejected
+
+
+Conclusion: 
+
+Age of Car, KM , HP, Weight, Quarterly_Tax has impact on Price of Car
+cc and Doors has no impact on Price of Car
+
+Thus, a second model dropping the varibale cc and Doors is created
+
+```{r}
+
+car2.lm <- lm(Price ~ Age+KM+HP+Weight+Quarterly_Tax, data = data1train)
+
+summary(car2.lm)
+
+library(forecast)
+predicted1<-predict(car2.lm,data1test)
+accuracy(predicted1,data1test$Price)
+
+#prediction and rmse
+predicted2<-predict(car2.lm,data1test)
+predicted2
+dim(predicted2)
+
+library(Metrics)
+#Metrics::rmse(data1test$e..g.km.,predicted1)
+#rmse(predicted1,data1test$Price)
+AIC(car2.lm)
+BIC(car2.lm)
+
+#ANOVA Table
+ano<-anova(car2.lm)
+ano
+```
+**EXPLANATION:**
+
+From the above output we can see that The dependent Variable(DV) in this model is Price which is a scaled variable. The independent variables used are Age(Age of Car in months as in August 2004
+),KM (Accumulated Kilometers on odometer),HP(Horse Power),Weight(Weight in Kilograms), Quarterly_Tax (Quarterly road tax in EUROs)
+
+Using these variables and the training dataset regression model is built 
+p-value>0.05 ---accept null hypothesis
+p-value<0.05---reject null hypothesis
+
+Ho:Model is not good fit , Ha: Model good fit
+
+From the output , we get a p-value of 0.00000000000000022 which is <0.05 Thus, Null Hypothesis is rejected. Thus model is a good fit. 
+
+H0:Variable has no impact on Price (Offer Price of Car)
+Ha:Variable has impact on Price of Car
+
+From the output the Pr(>|t|) values of the Chosen IVs are:
+Age - < 0.0000000000000002   ---->Null Hypothesis Rejected
+
+KM - < 0.0000000000000002  ---->Null Hypothesis Rejected
+
+HP - < 0.0000000000000002  ---->Null Hypothesis Rejected
+
+Weight - < 0.0000000000000002 ---->Null Hypothesis Rejected
+
+Quarterly_Tax - 0.00021 ---->Null Hypothesis Rejected
+
+
+Conclusion: 
+
+Age of Car, KM , HP, Weight, Quarterly_Tax has impact on Price of Car
+
+Adjusted R square and R square:
+R square is coefficient of determination- 0.8591,	 i.e. 85.91%.The selected variable
+(IVs) create 85.91% variation in the Dependent Variable - Price of Car
+
+Adjusted R square: As there are more than one IV thus Adjusted R square should be considered,0.8584 i.e. 85.84%.The selected IVs create 85.84% variation in the Price of Car 
+
+RMSE is 1309.907. Higher the RMSE, more improper the model is. To lower the RMSE more, more data should be collected so that the training and testing data is more. In this case , the testing dataset is very small due to which the RMSE is also less. Thus in order to get more accurate results , more data needs to be collected
+
+Regression equation: Car Price= -789.028882 - 121.732860 * Age - 0.021101 * KM + 38.592340 * HP + 14.311851 * Weight + 5.741484 * Quarterly_Tax
+
+Conclusion on beta coefficients: For each unit increase in age , the car price  will decrease by 121.732860
+For each unit increase in KM, the car price   will increase decrease by 0.021101 
+For each unit increase in HP , the car price will increase by 38.592340
+For each unit increase in Weight ,the car price will increase by 14.311851
+For each unit increase in Quarterly_Tax ,the car price will increase by 5.741484
+
+```{r}
+#Multicollinearity with respect to Model
+library(car)
+vif(car2.lm)
+
+```
+
+*Multicollinearity :*
+Multicollinearity means that there is high coorelation amongst the selected IVs.Values above 2.5 suggest that there is high multi-collinearity . In this case there is no high multi-collinearity amongst the variables .
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
+#Heteroscedasticity of residual 
+#randomness in residual
+plot(car2.lm$residuals,c(1:length(car2.lm$residuals)))
+
+#Heteroscadisticy- 
+plot(car2.lm$residuals,car2.lm$fitted.values)
+
+library(lmtest)
+library(fBasics)
+library(moments)
+bptest(car2.lm)
+
+```
+Heteroscedasticity means unequal scatter and produces a distinctive fan or cone shape in residual plots . Specifically, heteroscedasticity is a systematic change in the spread of the residuals over the range of measured value.
+
+The test statistic is 284.45 and the corresponding p-value is< 0.00000000000000022
+ Since the p-value is less than 0.05, we can reject the null hypothesis. We have sufficient evidence to say that heteroscedasticity is present in the regression model.
+ 
+Null Hypothesis (H0): Homoscedasticity is present (the residuals are distributed with equal variance)
+Alternative Hypothesis (HA): Heteroscedasticity is present (the residuals are not distributed with equal variance)
+ 
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
+# #To remove heteroscedasticity
+# library(caret)
+# Price1<- BoxCoxTrans(data1train$Price)
+# 
+# data1train <- cbind(data1train, Price_BC = predict(Price1, data1train$Price))
+# 
+# BCm1 <- lm(Price_BC ~ Age+KM+HP+Weight+Quarterly_Tax, data = data1train)
+# bptest(BCm1)
+# library(gvlma)
+# gvlma(BCm1)
+# 
+# # predicted3<-predict(car3.lm,data1test)
+# # library(Metrics)
+# # rmse(predicted3,data1test$Price)
+# # vif(m1)
+# # 
+# # plot(car3.lm$residuals,c(1:length(car3.lm$residuals)))
+# # plot(car3.lm$residuals,car3.lm$fitted.values)
+# 
+# 
+# wts <- 1 / lm(abs(car2.lm$residuals) ~ car2.lm$fitted.values)$fitted.values^2
+# car2.gls <- lm(Price_BC~ Age+KM+HP+Weight+Quarterly_Tax, weights = wts, data = data1train)
+# summary(car2.gls)
+# bptest(car2.gls)
+
+```
+
+
+```{r}
+#Normality of Residual
+car2.lm$coefficients
+x<-car2.lm$residuals
+qqnorm(x)
+qqline(x)
+shapiro.test(x)
+hist(x)
+```
+
+**EXPLANATION**
+Shapiro Test for Normality:
+Null hypothesis: Data is normally distributed
+Alternate Hypothesis: Data is not normally distributed
+
+p-value = 0.0000000000003005. If the p-value is greater than 0.05, then the null hypothesis is not rejected. In this case, the p- value is less than 0.05 thus data is not normally distributed . Most of the data point lie on the line as seen from the Normal qq Plot.
+```{r}
+#Autocorrelation
+library(lmtest)
+dwtest(car2.lm)
+
+```
+**EXPLANATION**
+Autocorrelation occurs when the residuals are not independent from each other.
+The null hypothesis of the Durbin Watson test (Ho) is that there is no correlation among residuals, i.e., they are independent. The alternative hypothesis (Ha) is that residuals are autocorrelated.
+
+We see that the resulting p-value is not greater than 0.05, and so we reject the null hypothesis. The D-W statistic for this model of 1.4759 which indicates a less positive correlation in the residuals data. In order to solve this and remove autocorrelation some more missing predictors(IVs) should be added to the regression model.
+
+```{r}
+
+#Finding the errors
+data3<- cbind(data1test$Price,predicted2)
+datadf <- as.data.frame(data3)
+#datadf <- datadf %>% rowwise() %>%
+  #mutate(Error = datadf$V1-datadf$predicted2)
+datadf$Error <- datadf$V1 - datadf$predicted2
+datadf
+View(datadf)
+print(mean(datadf$Error))
+print(max(datadf$Error))
+print(min(abs(datadf$Error)))
+```
+
+**PROBELM STATEMENT 2**
+
+Determine the number of months left for  vehicle to become eligible for vehicle scrapping. Cars older than 20 years are eligible for scrapping. A value of 0 indicates that the vehicle is eligble for vehicle scrapping
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
+library(tibble)
+data2<-data1
+
+  
+# Difference between dates
+elapsed_months <- function(end_date, start_date) {
+    ed <- as.POSIXlt(end_date)
+    sd <- as.POSIXlt(start_date)
+    12 * (ed$year - sd$year) + (ed$mon - sd$mon)
+}
+diff<-elapsed_months(as.Date("2021-06-01"),as.Date("2004-08-01"))
+diff
+data2$Age<-data2$Age+diff
+# library(tibble)
+# depr_df <- depr_df %>%
+#   add_column(Is_Depressed = 
+#                if_else(.$DeprIndex < 18, TRUE, FALSE),
+#              .after="ID")
+data2 <- data2 %>%
+  add_column(MonthsLeft=if_else((240-.$Age)>0, (240-.$Age),0)
+             ,.after="Weight")
+data2
+#if_else(.$Age/12 >= 21, TRUE , FALSE),
+dim(data2)
+View(data2)
+data2[, c(1,2,11)]
+```
+
+**GRAPHS**
+
+
+```{r}
+
+tab1<-table(data1$Model)
+tab1
+ggplot(aes(x = Age, y = Price), data = data1) + geom_point()+geom_smooth()+ggtitle("Age vs Price")+theme(axis.ticks =element_blank())
+
+ggplot(data1, aes(x = KM, y = Price)) + 
+geom_point() +geom_smooth()+ggtitle("KM vs Price")  +theme(axis.ticks =element_blank())
+
+ggplot(data1, aes(x = HP, y = Price)) + 
+geom_point() +geom_smooth()+ggtitle("HP vs Price")  +theme(axis.ticks =element_blank())
+
+ggplot(data1, aes(x = Weight, y = Price)) + 
+geom_point() +geom_smooth()+ggtitle("Weight vs Price")  +theme(axis.ticks =element_blank())
+
+ggplot(data1, aes(x = Quarterly_Tax, y = Price)) + 
+geom_point() +geom_smooth()+ggtitle("Quarterly Tax vs Price")  +theme(axis.ticks =element_blank())
+
+
+fit1 <- lm(Price ~ Age, data = data1)
+fit2<- lm(Price ~ KM, data = data2)
+ggplotRegression <- function (fit) {
+
+require(ggplot2)
+
+ggplot(fit$model, aes_string(x = names(fit$model)[2], y = names(fit$model)[1])) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red") +
+  labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
+                     "Intercept =",signif(fit$coef[[1]],5 ),
+                     " Slope =",signif(fit$coef[[2]], 5),
+                     " P =",signif(summary(fit)$coef[2,4], 5)))
+}
+options(scipen=0)
+ggplotRegression(fit1)
+ggplotRegression(fit2)
+```
