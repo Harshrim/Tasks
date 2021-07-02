@@ -1,0 +1,349 @@
+---
+title: "SIP-Project"
+author: "Harshrim Pardal"
+date: "6/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r , echo=FALSE ,results='hide',warning=FALSE,message=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+options(scipen=999)
+
+## Loading the libraries
+library(caret)
+library(class)
+library(dplyr)
+library(stats)
+library(Metrics)
+library(forecast)
+library(gains)
+library(corrplot)
+library(DataExplorer)
+library(ggplot2)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(tidyr)
+library(e1071)
+library(forcats)
+```
+
+```{r}
+#Loading the dataset
+emp1<-read.csv("D:\\RIMA\\MBA\\Christ\\SIP-Outlook\\Data\\Employee Response - Final\\emp_final.csv")
+#emp1
+str(emp1)
+summary(emp1)
+dim(emp1)
+emp1<-na.omit(emp1) #removing the records containing null values
+dim(emp1)
+```
+
+```{r}
+#Conversion into numeric
+gender1 <- factor(emp1$Gender,levels=c("Female","Male","Other"))
+# Converting a factor into a numeric vector 
+emp1$Gender<-dplyr::recode(gender1, "1" = "Female", "2" = "Male", "3" = " Other")
+
+status<-factor(emp1$Martial.Status,levels=c("Married","Unmarried"))
+emp1$Martial.Status<-dplyr::recode(status, "1" = "Married", "2" = "Unmarried")
+
+children<-factor(emp1$X.Children,levels=c("Not Applicable","0-1","2-3","4-5"))
+emp1$X.Children<-dplyr::recode(status, "1" = "Not Applicable", "2" = "0-1","3"="2-3","4"="4-5")
+
+edu<-factor(emp1$Educational.Qualification,levels=c("Undergraduate","Postgraduate","PhD."))
+emp1$Educational.Qualification<-dplyr::recode(status, "1" = "Undergraduate", "2" = "Postgraduate","3"="PhD.")
+
+# dept<-factor(emp1$Department)
+# emp1$Department<-as.numeric(dept)
+
+title<-factor(emp1$Current.Job.Title)
+emp1$Current.Job.Title<-as.numeric(title)
+
+
+rank<-factor(emp1$Current.Job.Rank.or.Level,levels=c("Employee","Advisor","Management","Middle Management","Executive Management"))
+emp1$Current.Job.Rank.or.Level<-dplyr::recode(status, "1" = "Employee", "2" = "Advisor","3"="Management","4"="Middle Management","5"="Executive Management")
+
+sal<-factor(emp1$Satis...Salary,levels =c("Highly Dissatisfied","Not Satisfied", "Neutral","Satisfied","Highly Satisfied"))
+emp1$Satis...Salary<-dplyr::recode(sal, "1" = "Highly Dissatisfied", "2" = "Not Satisfied", "3" = " Neutral", "4"="Satisfied","5"="Highly Satisifed")
+str(emp1$Satis...Salary)
+
+job<-factor(emp1$Satis...Job,levels =c("Highly Dissatisfied","Not Satisfied", "Neutral","Satisfied","Highly Satisfied"))
+emp1$Satis...Job<-dplyr::recode(job, "1" = "Highly Dissatisfied", "2" = "Not Satisfied", "3" = " Neutral", "4"="Satisfied","5"="Highly Satisifed")
+
+workcul<-factor(emp1$Satis..Org.Work.Culture,levels =c("Highly Dissatisfied","Not Satisfied", "Neutral","Satisfied","Highly Satisfied"))
+emp1$Satis..Org.Work.Culture<-dplyr::recode(workcul, "1" = "Highly Dissatisfied", "2" = "Not Satisfied", "3" = " Neutral", "4"="Satisfied","5"="Highly Satisifed")
+
+wlb<-factor(emp1$Satis..WorkLife.Balance,levels =c("Highly Dissatisfied","Not Satisfied", "Neutral","Satisfied","Highly Satisfied"))
+emp1$Satis..WorkLife.Balance<-dplyr::recode(wlb, "1" = "Highly Dissatisfied", "2" = "Not Satisfied", "3" = " Neutral", "4"="Satisfied","5"="Highly Satisifed")
+
+training<-factor(emp1$Does.your.organization.provide.trainings.,levels =c("Yes","No"))
+emp1$Does.your.organization.provide.trainings.<-dplyr::recode(training, "0" = "No", "1" = "Yes")
+str(emp1$Does.your.organization.provide.trainings.)
+#str(emp1)
+```
+```{r}
+#Splitting the dataset into training and testing
+intrain <- createDataPartition(y = emp1$Performance.Rating, p= 0.65, list = FALSE)
+training <- emp1[intrain,]
+testing <- emp1[-intrain,]
+
+```
+
+```{r}
+f1_score <- function(predicted, expected, positive.class="1") {
+    predicted <- factor(as.character(predicted), levels=unique(as.character(expected)))
+    expected  <- as.factor(expected)
+    cm = as.matrix(table(expected, predicted))
+
+    precision <- diag(cm) / colSums(cm)
+    recall <- diag(cm) / rowSums(cm)
+    f1 <-  ifelse(precision + recall == 0, 0, 2 * precision * recall / (precision + recall))
+
+    #Assuming that F1 is zero when it's not possible compute it
+    f1[is.na(f1)] <- 0
+
+    #Binary F1 or Multi-class macro-averaged F1
+    ifelse(nlevels(expected) == 2, f1[positive.class], mean(f1))
+}
+```
+**Model 1 - Using all the attributes of dataset **
+
+**SVM**
+```{r warning=FALSE,message=FALSE}
+#SVM Classification
+library(kernlab)
+training[["Performance.Rating"]] = factor(training[["Performance.Rating"]])
+trctrl <- trainControl(method = "repeatedcv", number = 3, repeats = 3)
+svm_Linear <- train(Performance.Rating ~., data = training, method = "svmLinear",
+trControl=trctrl,preProcess = c("center", "scale"),tuneLength = 10)
+#svm_Linear
+test_pred <- predict(svm_Linear, newdata = testing)
+test_pred
+svmtab1<-table(test_pred, testing$Performance.Rating,dnn=c("Prediction","Actual"))
+svmtab1
+svmAcc1=(svmtab1[2,1]+svmtab1[3,2]+svmtab1[4,3]+svmtab1[5,4])/sum(svmtab1)
+print("SVM Accuracy - Model 1")
+svmAcc1
+print("SVM F1 score - Model 1")
+f1_score(test_pred,testing$Performance.Rating)
+```
+
+
+
+**Naive Bayes**
+
+```{r}
+nb_default <- naiveBayes(Performance.Rating~., data=training)
+default_pred <- predict(nb_default, testing, type="class")
+acc1<-table(default_pred, testing$Performance.Rating,dnn=c("Prediction","Actual"))
+acc1
+testAcc=(acc1[2,1]+acc1[3,2]+acc1[4,3]+acc1[5,4])/sum(acc1)
+trainPred=predict(nb_default, newdata = training, type = "class")
+trainTable=table(training$Performance.Rating, trainPred)
+
+# testTable=table(testing$Performance.Rating, default_pred)
+# testTable
+#trainAcc=(trainTable[1,1]+trainTable[2,2]+trainTable[3,3]+trainTable[4,4]+trainTable[5,5])/sum(trainTable)
+#testAcc=(testTable[1,2]+testTable[2,3]+testTable[3,4]+testTable[4,5])/sum(testTable)
+
+# message("Contingency Table for Training Data")
+# print(trainTable)
+# message("Contingency Table for Test Data")
+# print(testTable)
+message("Naive Bayes Accuracy - Model 1")
+print(testAcc)
+print("Naive Bayes F1 score - Model 1")
+f1_score(default_pred,testing$Performance.Rating)
+#print(round(cbind(trainAccuracy=trainAcc, testAccuracy=testAcc),5))
+```
+
+**Model 2 - USING ATTRIBUTES SELECTED BY FEATURE EXTRACTION **
+
+Attributes selected from Weka are - Annual Salary, Satis- Salary , Satis - Work Life Balance and Does your Organization provide training
+
+```{r echo=FALSE, fig.cap="A caption", out.width = '100%'}
+knitr::include_graphics("D:/RIMA/Scr6.png")
+```
+
+
+**SVM**
+
+```{r}
+svm_Linear1 <- train(Performance.Rating ~Annual.Salary+Satis...Salary+Satis..WorkLife.Balance+Does.your.organization.provide.trainings., data = training, method = "svmLinear",
+trControl=trctrl,
+preProcess = c("center", "scale"),tuneLength = 10)
+#svm_Linear1
+test_pred1 <- predict(svm_Linear1, newdata = testing)
+test_pred1
+svmtab2<-table(test_pred1, testing$Performance.Rating,dnn=c("Prediction","Actual"))
+svmtab2
+svmAcc2=(svmtab2[2,1]+svmtab2[3,2]+svmtab2[4,3]+svmtab2[5,4])/sum(svmtab2)
+print("SVM Accuracy - Model 2")
+svmAcc2
+print("SVM F1 score - Model 2")
+f1_score(test_pred1,testing$Performance.Rating)
+```
+
+**Naive Bayes**
+
+```{r}
+nb_default1 <- naiveBayes(Performance.Rating ~Annual.Salary+Satis...Salary+Satis..WorkLife.Balance+Does.your.organization.provide.trainings., data=training)
+default_pred1 <- predict(nb_default1, testing, type="class")
+acc2<-table(default_pred1, testing$Performance.Rating,dnn=c("Prediction","Actual"))
+acc2
+testAcc2=(acc2[2,1]+acc2[3,2]+acc2[4,3]+acc2[5,4])/sum(acc2)
+
+# trainPred1=predict(nb_default1, newdata = training, type = "class")
+# trainTable1=table(training$Performance.Rating, trainPred1)
+# testTable1=table(testing$Performance.Rating, default_pred1)
+# #trainAcc1=(trainTable1[1,1]+trainTable1[2,2]+trainTable1[3,3]+trainTable1[4,4]+trainTable1[5,5])/sum(trainTable1)
+# testAcc1=(testTable1[1,1]+testTable1[2,2]+testTable1[3,3]+testTable1[4,4])/sum(testTable1)
+# # message("Contingency Table for Training Data")
+# # print(trainTable)
+# # message("Contingency Table for Test Data")
+# # print(testTable)
+message("Naive Bayes Accuracy - Model 2")
+print(testAcc2)
+print("Naive Bayes F1 score - Model 2")
+f1_score(default_pred1,testing$Performance.Rating)
+#print(round(cbind(trainAccuracy=trainAcc1, testAccuracy=testAcc1),5))
+
+```
+
+**TABLES**
+
+```{r}
+#Tables
+tab1<-table(emp1$Satis...Salary,emp1$Performance.Rating)
+tab1
+prop.table(tab1)
+chisq.test(tab1)
+
+
+tab3<-table(emp1$Satis..WorkLife.Balance,emp1$Performance.Rating)
+tab3
+# prop.table(table3)
+# chisq.test(tab3)
+
+tab4<-table(emp1$Does.your.organization.provide.trainings.,emp1$Performance.Rating)
+tab4
+
+#Chi-Square Tests
+tab2<-table(emp1$Satis...Job,emp1$Performance.Rating)
+tab2
+prop.table(tab2)
+chisq.test(tab2)
+
+tab5<-table(emp1$Department,emp1$Satis...Salary)
+chisq.test(tab5)
+
+# tab6<-table(emp1$Department,emp1$Satis..Job)
+# chisq.test(tab6)
+
+tab7<-table(emp1$Department,emp1$Satis..WorkLife.Balance)
+chisq.test(tab7)
+
+tab8<-table(emp1$Department,emp1$mode.of.training.preferred)
+chisq.test(tab8)
+prop.table(tab8)
+# tab9<-table(emp1$Gender,emp1$Satis...Salary)
+# chisq.test(tab9)
+# 
+# tab10<-table(emp1$Gender,emp1$Satis..Job)
+# chisq.test(tab10)
+# 
+# tab11<-table(emp1$Gender,emp1$Satis..WorkLife.Balance)
+# chisq.test(tab11)
+# 
+# tab12<-table(emp1$Gender,emp1$mode.of.training.preferred)
+# chisq.test(tab12)
+```
+
+**MODEL3 - Adding Satisfaction-Job**
+
+```{r}
+svm_Linear2 <- train(Performance.Rating ~+Satis...Salary+Satis..WorkLife.Balance+Does.your.organization.provide.trainings.+Satis...Job+Annual.Salary, data = training, method = "svmLinear",
+trControl=trctrl,
+preProcess = c("center", "scale"),tuneLength = 10)
+#svm_Linear2
+test_pred2 <- predict(svm_Linear2, newdata = testing)
+test_pred2
+svmtab3<-table(test_pred2, testing$Performance.Rating,dnn=c("Prediction","Actual"))
+svmtab3
+svmAcc3=(svmtab3[2,1]+svmtab3[3,2]+svmtab3[4,3]+svmtab3[5,4])/sum(svmtab3)
+print("SVM Accuracy - Model 3")
+svmAcc3
+print("SVM F1 score - Model 3")
+f1_score(test_pred2,testing$Performance.Rating)
+
+nb_default3 <- naiveBayes(Performance.Rating ~Satis...Salary+Satis..WorkLife.Balance+Does.your.organization.provide.trainings.+Satis...Job+Annual.Salary, data=training)
+default_pred3 <- predict(nb_default3, testing, type="class")
+acc3<-table(default_pred3, testing$Performance.Rating,dnn=c("Prediction","Actual"))
+acc3
+testAcc3=(acc3[2,1]+acc3[3,2]+acc3[4,3]+acc3[5,4])/sum(acc3)
+message("Naive Bayes Accuracy - Model 3")
+print(testAcc3)
+print("Naive Bayes F1 score - Model 3")
+f1_score(default_pred3,testing$Performance.Rating)
+```
+
+**GRAPHS**
+
+
+```{r, warning=FALSE}
+# 
+# df1<- cbind(c("SVM","Naive Bayes"),c(47.06,55.88),c(67.64,64.7),c(66.17,67.64))
+# df1
+# #df1$V2<-as.numeric(df1$V2)
+# class(df1)
+# df1<-as.data.frame(df1)
+# 
+# ggplot(data = df1 , aes(V1,V2, fill=V1))+geom_bar(stat="identity")+geom_text(aes(label = V2, nudge_y = -10.5))+theme(panel.background = element_blank())+labs(fill="Algorithm")+ggtitle("Accuracy of Algorithms (in %) - Model 1")+ylab("Accuracy")
+# 
+# ggplot(data = df1 , aes(V1,V3, fill=V1))+geom_bar(stat="identity")+geom_text(aes(label = V3, nudge_y = -10.5))+theme(panel.background = element_blank())+labs(fill="Algorithm")+ggtitle("Accuracy of Algorithms (in %) - Model 2")+ylab("Accuracy")
+# 
+# ggplot(data = df1 , aes(V1,V4, fill=V1))+geom_bar(stat="identity")+geom_text(aes(label = V4, nudge_y = -10.5))+theme(panel.background = element_blank())+labs(fill="Algorithm")+ggtitle("Accuracy of Algorithms (in %) - Model 3")+ylab("Accuracy")
+
+```
+
+
+```{r}
+#Graphs
+emp1$Satis...Salary <-factor(emp1$Satis...Salary,labels = c("Highly Dissatisfied","Not Satisfied","Neutral","Satisfied","Highly Satisfied"))
+emp1$Satis...Job <-factor(emp1$Satis...Job,labels = c("Highly Dissatisfied","Not Satisfied","Neutral","Satisfied","Highly Satisfied"))
+emp1$Satis..Org.Work.Culture <-factor(emp1$Satis..Org.Work.Culture,labels = c("Highly Dissatisfied","Not Satisfied","Neutral","Satisfied","Highly Satisfied"))
+emp1$Satis..WorkLife.Balance <-factor(emp1$Satis..WorkLife.Balance,labels = c("Highly Dissatisfied","Not Satisfied","Neutral","Satisfied","Highly Satisfied"))
+
+emp1$Performance.Rating <-factor(emp1$Performance.Rating,labels=c("Poor","Satisfactory","Good","Very Good","Excellent"))
+
+label1<-c(1,11,29,4,1,6,39,41,6,1,1,2,18,28,4,7,1)
+
+ggplot(data = emp1 , aes(Performance.Rating,fill=Satis...Salary))+geom_bar()+ggtitle("Salary Satisfaction distribution performance rating wise")+theme(axis.ticks =element_blank())+theme(panel.background = element_blank())+scale_fill_discrete(name = "Salary Satisfaction Level")
+
+ggplot(data = emp1 , aes(Performance.Rating,fill=Satis...Job))+geom_bar()+theme(panel.background = element_blank())+scale_fill_discrete(name = "Job Satisfaction Level")+ggtitle("Job Satisfaction distribution performance rating wise")
+
+ggplot(data = emp1 , aes(Performance.Rating,fill=Satis..WorkLife.Balance))+geom_bar()+theme(panel.background = element_blank())+scale_fill_discrete(name = "Work Life Balance Satisfaction")+ggtitle("Work Life Satisfaction distribution performance rating wise")
+
+ggplot(data = emp1 , aes(Performance.Rating,fill=Does.your.organization.provide.trainings.))+geom_bar()+theme(panel.background = element_blank())+scale_fill_discrete(name = "Is Training Provided")+ggtitle("Training Availability distribution performance rating wise")
+
+emp1$Does.your.organization.provide.trainings.<-factor(emp1$Does.your.organization.provide.trainings.)
+
+ggplot(data = emp1 , aes(Department,fill=Satis..WorkLife.Balance))+geom_bar()+theme(panel.background = element_blank())+scale_fill_discrete(name = "Work Life Balance Satisfaction") +ggtitle("Department wise Work Life Balance")
+
+ggplot(data = emp1 , aes(Department,fill=Does.your.organization.provide.trainings.))+geom_bar()+theme(panel.background = element_blank())+scale_fill_discrete(name = "Training Provided", labels = c("Yes", "No")) +ggtitle("Depatment wise Training Availability")
+
+ggplot(data = emp1 , aes(Department,fill=mode.of.training.preferred))+geom_bar()+theme(panel.background = element_blank())+scale_fill_discrete(name = "Training Preference", labels = c("Offline", "Online"))+ggtitle("Department wise Training Preferrence")
+
+#barplot(height=df1$V2, names=df1$V1, width=c(0.001,0.001))
+
+```
+
+
+```{r pressure, echo=FALSE, fig.cap="A caption", out.width = '100%'}
+knitr::include_graphics("D:/RIMA/Scr8.png")
+```
