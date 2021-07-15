@@ -1,0 +1,383 @@
+---
+title: "SIP-2"
+author: "Harshrim Pardal"
+date: "7/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r , echo=FALSE ,results='hide',warning=FALSE,message=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+options(scipen=999)
+
+## Loading the libraries
+library(caret)
+library(class)
+library(dplyr)
+library(stats)
+library(Metrics)
+library(forecast)
+library(gains)
+library(corrplot)
+library(DataExplorer)
+library(ggplot2)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(tidyr)
+library(e1071)
+library(forcats)
+library(pROC)
+```
+
+```{r,warning=FALSE}
+#Loading the dataset
+emp1<-read.csv("D:\\RIMA\\MBA\\Christ\\SIP-Outlook\\Data\\Employee Response - Final\\emp_final(2).csv")
+#emp1
+#str(emp1)
+#summary(emp1)
+dim(emp1)
+#emp1<-na.omit(emp1) #removing the records containing null values
+dim(emp1)
+intrain <- createDataPartition(y = emp1$Performance.Rating, p= 0.60, list = FALSE)
+training <- emp1[intrain,]
+testing <- emp1[-intrain,]
+```
+
+```{r,warning=FALSE}
+#Conversion into numeric
+gender1 <- factor(emp1$Gender,levels=c("Female","Male","Other"))
+# Converting a factor into a numeric vector 
+emp1$Gender<-dplyr::recode(gender1, "1" = "Female", "2" = "Male", "3" = " Other")
+
+status<-factor(emp1$Martial.Status,levels=c("Married","Unmarried"))
+emp1$Martial.Status<-dplyr::recode(status, "1" = "Married", "2" = "Unmarried")
+
+children<-factor(emp1$X.Children,levels=c("Not Applicable","0-1","2-3","4-5"))
+emp1$X.Children<-dplyr::recode(status, "1" = "Not Applicable", "2" = "0-1","3"="2-3","4"="4-5")
+
+edu<-factor(emp1$Educational.Qualification,levels=c("Undergraduate","Postgraduate","PhD."))
+emp1$Educational.Qualification<-dplyr::recode(status, "1" = "Undergraduate", "2" = "Postgraduate","3"="PhD.")
+#str(emp1$Educational.Qualification)
+#class(emp1$Educational.Qualification)
+# dept<-factor(emp1$Department)
+# emp1$Department<-as.numeric(dept)
+
+# title<-factor(emp1$Current.Job.Title)
+# emp1$Current.Job.Title<-as.numeric(title)
+
+
+rank<-factor(emp1$Current.Job.Rank.or.Level,levels=c("Employee","Advisor","Management","Middle Management","Executive Management"))
+emp1$Current.Job.Rank.or.Level<-dplyr::recode(status, "1" = "Employee", "2" = "Advisor","3"="Management","4"="Middle Management","5"="Executive Management")
+
+sal<-factor(emp1$Satis...Salary,levels =c("Not Satisfied", "Neutral","Satisfied"))
+emp1$Satis...Salary<-dplyr::recode(sal, "1" = "Not Satisfied", "2" = " Neutral", "3"="Satisfied")
+#str(emp1$Satis...Salary)
+
+job<-factor(emp1$Satis...Job,levels =c("Not Satisfied", "Neutral","Satisfied"))
+emp1$Satis...Job<-dplyr::recode(job, "1" = "Not Satisfied", "2" = " Neutral", "3"="Satisfied")
+
+workcul<-factor(emp1$Satis..Org.Work.Culture,levels =c("Not Satisfied", "Neutral","Satisfied"))
+emp1$Satis..Org.Work.Culture<-dplyr::recode(workcul,"1" = "Not Satisfied", "2" = " Neutral", "3"="Satisfied")
+
+wlb<-factor(emp1$Satis..WorkLife.Balance,levels =c("Not Satisfied", "Neutral","Satisfied"))
+emp1$Satis..WorkLife.Balance<-dplyr::recode(wlb, "1" = "Not Satisfied", "2" = " Neutral", "3"="Satisfied")
+
+trainav<-factor(emp1$Does.your.organization.provide.trainings.,levels =c("Yes","No"))
+emp1$Does.your.organization.provide.trainings.<-dplyr::recode(trainav, "0" = "No", "1" = "Yes")
+#str(emp1$Does.your.organization.provide.trainings.)
+#str(emp1)
+```
+
+```{r,warning=FALSE}
+f1_score <- function(predicted, expected, positive.class="1") {
+    predicted <- factor(as.character(predicted), levels=unique(as.character(expected)))
+    expected  <- as.factor(expected)
+    cm = as.matrix(table(expected, predicted))
+
+    precision <- diag(cm) / colSums(cm)
+    recall <- diag(cm) / rowSums(cm)
+    message("Precision")
+    print(precision)
+    message("Recall")
+    print(recall)
+    f1 <-  ifelse(precision + recall == 0, 0, 2 * precision * recall / (precision + recall))
+
+    #Assuming that F1 is zero when it's not possible compute it
+    f1[is.na(f1)] <- 0
+
+    #Binary F1 or Multi-class macro-averaged F1
+    ifelse(nlevels(expected) == 2, f1[positive.class], mean(f1))
+}
+```
+**Model 1 - Using all the attributes of dataset **
+
+**Logistic Regression**
+
+```{r}
+# Fit the model
+model1 <- nnet::multinom(Performance.Rating ~ Annual.Salary+Satis...Salary+Satis..WorkLife.Balance+Does.your.organization.provide.trainings.+Satis..Org.Work.Culture+Satis...Job+WorkEx.at.current.org+Age+Total.WorkEx+No..of.Previous.Companies.worked.for, data = training)
+# Summarize the model
+#summary(model1)
+(coef(model1))
+# Make predictions
+predicted1.classes <- model1 %>% predict(testing, type='class')
+#head(predicted1.classes)
+acc1<-table(predicted1.classes, testing$Performance.Rating,dnn=c("Prediction","Actual"))
+acc1
+n1 = sum(acc1) # number of instances
+nc1 = nrow(acc1) # number of classes
+diag1 = diag(acc1) # number of correctly classified instances per class 
+rowsums1 = apply(acc1, 1, sum) # number of instances per class
+colsums1 = apply(acc1, 2, sum) # number of predictions per class
+p1 = rowsums1 / n1# distribution of instances over the actual classes
+q1 = colsums1 / n1 # distribution of instances over the predicted classes
+precision1 = diag1 / colsums1 
+recall1 = diag1 / rowsums1 
+f1_1 = 2 * precision1 * recall1 / (precision1 + recall1) 
+macroPrecision1 = mean(precision1)
+macroRecall1 = mean(recall1)
+macroF1_1 = mean(f1_1)
+data.frame(macroPrecision1, macroRecall1,macroF1_1)
+pr1 <- predict(model1, newdata=testing, type="prob")
+multiclass.roc(testing$Performance.Rating, pr1)
+```
+**Decision Tree**
+
+```{r,warning=FALSE}
+library(rpart)
+library(rpart.plot)
+options(scipen=999)
+tree1 <- rpart(Performance.Rating ~ Annual.Salary+Satis...Salary+Satis..WorkLife.Balance+Does.your.organization.provide.trainings.+Satis..Org.Work.Culture+Satis...Job, data = training, method = "class")
+#tree1
+rpart.plot(tree1)
+
+#Pruning
+bestcp1 <- tree1$cptable[which.min(tree1$cptable[,"xerror"]),"CP"]
+tree1$cptable
+bestcp1
+
+tree1.pruned <- prune(tree1, cp = bestcp1,minbucket=50)
+rpart.plot(tree1.pruned, extra=104, box.palette="GnBu",branch.lty=3, shadow.col="gray", nn=TRUE)
+data.predictions1 <- predict(tree1, newdata=testing, type="prob")
+multiclass.roc(testing$Performance.Rating, data.predictions1)
+
+#str(training$Performance.Rating)
+testing$Performance.Rating<-factor(testing$Performance.Rating,levels=c("Poor","Satisfactory","Good","Very Good","Excellent"))
+lvl <- levels(testing$Performance.Rating)
+ypred1=predict(tree1.pruned,testing,type="class")
+res1<-confusionMatrix(factor(ypred1, levels=lvl), factor(testing$Performance.Rating, levels=lvl))
+#res1
+#precision1 <- mean(res1$byClass['Pos Pred Value'] )   
+precision1<-(0.6296+0.6087+0.5+0.6571)/5
+#recall1 <- mean(res2$byClass['Sensitivity'])
+recall1<-sum(0.6071,.6829 ,0.6571,0.38462)/5
+message("Precision")
+precision1
+message("Recall")
+recall1
+```
+
+**Model 2 - USING ATTRIBUTES SELECTED BY FEATURE EXTRACTION **
+
+Attributes selected from Weka are - Annual Salary, Satis- Salary , Satis - Work Life Balance and Number of Previous Companies Worked for
+
+```{r echo=FALSE, fig.cap="Weka Feature Extraction Screenshot", out.width = '100%'}
+knitr::include_graphics("D:/RIMA/Scr.png")
+```
+
+**Logistic Regression**
+```{r,warning=FALSE}
+# Fit the model
+model2 <- nnet::multinom(Performance.Rating ~ Satis...Salary+Satis..WorkLife.Balance+Annual.Salary+No..of.Previous.Companies.worked.for, data = training)
+# Summarize the model
+#summary(model1)
+# Make predictions
+predicted2.classes <- model2 %>% predict(testing, type='class')
+#head(predicted1.classes)
+acc2<-table(predicted2.classes, testing$Performance.Rating,dnn=c("Prediction","Actual"))
+acc2
+n2 = sum(acc2) # number of instances
+nc2 = nrow(acc2) # number of classes
+diag2 = diag(acc2) # number of correctly classified instances per class 
+rowsums2 = apply(acc2, 1, sum) # number of instances per class
+colsums2 = apply(acc2, 2, sum) # number of predictions per class
+p2 = rowsums2 / n2 # distribution of instances over the actual classes
+q2 = colsums2 / n2 # distribution of instances over the predicted classes
+precision2 = diag2 / colsums2 
+recall2 = diag2 / rowsums2 
+f1_2 = 2 * precision2 * recall2 / (precision2 + recall2) 
+macroPrecision2 = mean(precision2)
+macroRecall2 = mean(recall2)
+macroF1_2 = mean(f1_2)
+data.frame(macroPrecision2, macroRecall2,macroF1_2)
+pr2 <- predict(model2, newdata=testing, type="prob")
+multiclass.roc(testing$Performance.Rating, pr2)
+```
+
+**Decision Tree**
+
+```{r,warning=FALSE}
+library(rpart)
+library(rpart.plot)
+options(scipen=999)
+tree2 <- rpart(Performance.Rating ~Satis...Salary+Satis..WorkLife.Balance+Satis..Org.Work.Culture, data = training, method = "class")
+#tree1
+rpart.plot(tree2)
+
+
+#Pruning
+bestcp2 <- tree2$cptable[which.min(tree2$cptable[,"xerror"]),"CP"]
+#tree2$cptable
+tree2.pruned <- prune(tree2, cp = bestcp2)
+rpart.plot(tree2.pruned, extra=104, box.palette="GnBu",
+               branch.lty=3, shadow.col="gray", nn=TRUE)
+
+
+#str(training$Performance.Rating)
+testing$Performance.Rating<-factor(testing$Performance.Rating,levels=c("Poor","Satisfactory","Good","Very Good","Excellent"))
+lvl <- levels(testing$Performance.Rating)
+ypred2=predict(tree2.pruned,testing,type="class")
+res2<-confusionMatrix(factor(ypred2, levels=lvl), factor(testing$Performance.Rating, levels=lvl))
+#res2
+#precision2 <- mean(res2$byClass['Pos Pred Value'] )   
+precision2<-(0.5937+0.5107+0.4872)/5
+#recall2 <- mean(res2$byClass['Sensitivity'])
+recall2<-sum(0.6786,0.5854,0.5429)/5
+message("Precision")
+precision2
+message("Recall")
+recall2
+
+data.predictions2 <- predict(tree2.pruned, newdata=testing, type="prob")
+multiclass.roc(testing$Performance.Rating, data.predictions2)
+```
+**TABLES**
+
+```{r, warning=FALSE}
+#Tables
+tab1<-table(emp1$Satis...Salary,emp1$Performance.Rating)
+message("Satisfaction - Salary vs Performance Rating")
+#tab1
+#prop.table(tab1)
+chisq.test(tab1)
+
+#t.test(emp1$Satis...Salary,emp1$Performance.Rating,paired = TRUE)
+
+
+tab3<-table(emp1$Satis..WorkLife.Balance,emp1$Performance.Rating)
+message("Satisfaction - Work Life Balance vs Performance Rating")
+#tab3
+# prop.table(table3)
+# chisq.test(tab3)
+
+tab4<-table(emp1$Does.your.organization.provide.trainings.,emp1$Performance.Rating)
+message("Training vs Performance Rating")
+#tab4
+chisq.test(tab4)
+#prop.table(tab4)
+
+#Chi-Square Tests
+tab2<-table(emp1$Satis...Job,emp1$Performance.Rating)
+message("Satisfaction - Job vs Performance Rating")
+#tab2
+#prop.table(tab2)
+chisq.test(tab2)
+
+tab9<-table(emp1$Age,emp1$PR_1)
+message("Age vs Performance Rating")
+#tab2
+#prop.table(tab9)
+chisq.test(tab9)
+
+tab10<-table(emp1$WorkEx.at.current.org,emp1$Performance.Rating)
+message("Work Ex vs Performance Rating")
+#tab10
+#prop.table(tab10)
+chisq.test(tab10)
+
+tab11<-table(emp1$Satis..Org.Work.Culture,emp1$Performance.Rating)
+message("Satisfaction - OWC vs Performance Rating")
+#tab11
+#prop.table(tab11)
+chisq.test(tab11)
+
+tab12<-table(emp1$Total.WorkEx,emp1$Performance.Rating)
+message("Total Work Ex vs Performance Rating")
+#tab12
+#prop.table(tab12)
+chisq.test(tab12)
+
+tab13<-table(emp1$No..of.Previous.Companies.worked.for,emp1$Performance.Rating)
+message("Prev Company vs Performance Rating")
+#tab13
+#prop.table(tab13)
+chisq.test(tab13)
+
+tab5<-table(emp1$Department,emp1$Satis...Salary)
+chisq.test(tab5)
+
+# tab6<-table(emp1$Department,emp1$Satis..Job)
+# chisq.test(tab6)
+
+tab7<-table(emp1$Department,emp1$Satis..WorkLife.Balance)
+#tab7
+chisq.test(tab7)
+
+tab8<-table(emp1$Department,emp1$mode.of.training.preferred)
+#tab8
+message("Department vs Mode of Training")
+chisq.test(tab8)
+
+#prop.table(tab8)
+# tab9<-table(emp1$Gender,emp1$Satis...Salary)
+# chisq.test(tab9)
+# 
+# tab10<-table(emp1$Gender,emp1$Satis..Job)
+# chisq.test(tab10)
+# 
+# tab11<-table(emp1$Gender,emp1$Satis..WorkLife.Balance)
+# chisq.test(tab11)
+# 
+# tab12<-table(emp1$Gender,emp1$mode.of.training.preferred)
+# chisq.test(tab12)
+```
+**GRAPHS**
+
+```{r}
+#Graphs
+emp1$Satis...Salary <-factor(emp1$Satis...Salary,labels = c("Not Satisfied","Neutral","Satisfied"))
+emp1$Satis...Job <-factor(emp1$Satis...Job,labels = c("Not Satisfied","Neutral","Satisfied"))
+emp1$Satis..Org.Work.Culture <-factor(emp1$Satis..Org.Work.Culture,labels = c("Not Satisfied","Neutral","Satisfied"))
+emp1$Satis..WorkLife.Balance <-factor(emp1$Satis..WorkLife.Balance,labels = c("Not Satisfied","Neutral","Satisfied"))
+
+emp1$Performance.Rating <-factor(emp1$Performance.Rating,labels=c("Poor","Satisfactory","Good","Very Good","Excellent"))
+
+ggplot(data = emp1 , aes(PR_1,Age))+geom_point()+xlab("Performance Rating")+scale_x_discrete(limits=c("Poor", "Satisfactory", "Good","Very Good","Excellent"))
+
+ggplot(data = emp1 , aes(PR_1,Total.WorkEx))+geom_point()+xlab("Performance Rating")+scale_x_discrete(limits=c("Poor", "Satisfactory", "Good","Very Good","Excellent"))
+
+ggplot(data = emp1 , aes(PR_1,No..of.Previous.Companies.worked.for))+geom_point()+xlab("Performance Rating")+scale_x_discrete(limits=c("Poor", "Satisfactory", "Good","Very Good","Excellent"))
+
+ggplot(data = emp1 , aes(PR_1,Annual.Salary))+geom_point()+xlab("Performance Rating")+scale_x_discrete(limits=c("Poor", "Satisfactory", "Good","Very Good","Excellent"))
+
+
+# # +ggtitle("Salary Satisfaction distribution performance rating wise")+theme(axis.ticks =element_blank())+theme(panel.background = element_blank())+scale_fill_discrete(name = "Salary Satisfaction Level")
+# 
+# ggplot(data = emp1 , aes(Performance.Rating,fill=Satis...Job))+geom_bar()+theme(panel.background = element_blank())+scale_fill_discrete(name = "Job Satisfaction Level")+ggtitle("Job Satisfaction distribution performance rating wise")
+# 
+# ggplot(data = emp1 , aes(Performance.Rating,fill=Satis..WorkLife.Balance))+geom_bar()+theme(panel.background = element_blank())+scale_fill_discrete(name = "Work Life Balance Satisfaction")+ggtitle("Work Life Satisfaction distribution performance rating wise")
+# 
+# ggplot(data = emp1 , aes(Performance.Rating,fill=Does.your.organization.provide.trainings.))+geom_bar()+theme(panel.background = element_blank())+scale_fill_discrete(name = "Is Training Provided")+ggtitle("Training Availability distribution performance rating wise")
+
+emp1$Does.your.organization.provide.trainings.<-factor(emp1$Does.your.organization.provide.trainings.)
+
+ggplot(data = emp1 , aes(Department,fill=Satis..WorkLife.Balance))+geom_bar()+theme(panel.background = element_blank())+scale_fill_discrete(name = "Work Life Balance Satisfaction") +ggtitle("Department wise Work Life Balance")
+
+ggplot(data = emp1 , aes(Department,fill=Does.your.organization.provide.trainings.))+geom_bar()+theme(panel.background = element_blank())+scale_fill_discrete(name = "Training Provided", labels = c("Yes", "No")) +ggtitle("Depatment wise Training Availability")
+
+ggplot(data = emp1 , aes(Department,fill=mode.of.training.preferred))+geom_bar()+theme(panel.background = element_blank())+scale_fill_discrete(name = "Training Preference", labels = c("Offline", "Online"))+ggtitle("Department wise Training Preferrence")
+```
